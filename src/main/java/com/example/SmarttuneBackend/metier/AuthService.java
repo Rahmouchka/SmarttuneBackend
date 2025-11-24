@@ -100,7 +100,7 @@ public class AuthService {
     }
 
     // APPROBATION ARTISTE
-    public User approveArtist(Long requestId) {
+    public Artiste approveArtist(Long requestId) {
         ArtistRequest request = artistRequestRepository.findById(requestId)
                 .orElseThrow(() -> new RuntimeException("Demande non trouvée"));
 
@@ -108,7 +108,7 @@ public class AuthService {
             throw new RuntimeException("Demande déjà traitée");
         }
 
-        User artiste = new User();
+        Artiste artiste = new Artiste();
         artiste.setUsername(request.getNomArtiste());
         artiste.setNom(request.getNom());
         artiste.setPrenom(request.getPrenom());
@@ -121,7 +121,7 @@ public class AuthService {
         artiste.setBio(request.getBio());
         artiste.setActive(true);
 
-        User saved = userRepository.save(artiste);
+        Artiste saved = userRepository.save(artiste);
         request.setStatus(ArtistStatus.APPROVED);
         artistRequestRepository.save(request);
 
