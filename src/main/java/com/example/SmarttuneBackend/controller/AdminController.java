@@ -1,8 +1,10 @@
 package com.example.SmarttuneBackend.controller;
 
 import com.example.SmarttuneBackend.dao.ArtistRequestRepository;
-import com.example.SmarttuneBackend.entities.ArtistRequest;
-import com.example.SmarttuneBackend.entities.ArtistStatus;
+import com.example.SmarttuneBackend.dao.ChansonRepository;
+import com.example.SmarttuneBackend.dao.UserRepository;
+import com.example.SmarttuneBackend.dto.ChansonResponse;
+import com.example.SmarttuneBackend.entities.*;
 import com.example.SmarttuneBackend.metier.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -16,6 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +27,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
+    @Autowired private UserRepository userRepository;
+    @Autowired private ChansonRepository chansonRepository;
 
     @Autowired private ArtistRequestRepository artistRequestRepository;
     @Autowired private AuthService authService;
@@ -163,5 +168,89 @@ public class AdminController {
         stats.put("urgent", urgent);
 
         return ResponseEntity.ok(stats);
+    }
+
+    @GetMapping("/global-stats")
+    public Map<String, Long> getGlobalStats() {
+        Map<String, Long> stats = new HashMap<>();
+        stats.put("totalUsers", userRepository.countByRole(Role.USER));
+        stats.put("totalArtists", userRepository.countByRole(Role.ARTIST));
+        stats.put("totalSongs", chansonRepository.count());
+        stats.put("pendingRequests", artistRequestRepository.countByStatus(ArtistStatus.PENDING));
+
+        // Calcul urgent (>48h)
+        long urgent = artistRequestRepository.findByStatus(ArtistStatus.PENDING).stream()
+                .filter(req -> ChronoUnit.HOURS.between(req.getSubmittedAt(), LocalDateTime.now()) > 48)
+                .count();
+        stats.put("urgentRequests", urgent);
+
+        stats.put("reports", 0L);
+        return stats;
+    }
+
+    // DANS AdminController.java
+
+    @GetMapping("/users")
+    public List<User> getAllUsers() {
+        return userRepository.findAll().stream()
+                .filter(u -> u.getRole() == Role.USER) // SEULEMENT LES VRAIS USERS
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("/artists")
+    public ResponseEntity<List<Map<String, Object>>> getAllArtists() {
+        List<Map<String, Object>> artists = userRepository.findAll().stream()
+                .filter(user -> user instanceof Artiste)
+                .map(user -> {
+                    Artiste artiste = (Artiste) user;
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", artiste.getId());
+                    map.put("username", artiste.getUsername());
+                    map.put("email", artiste.getEmail());
+                    map.put("bio", artiste.getBio());                    // → PLUS DE "Aucune bio" ICI
+                    map.put("genre", artiste.getGenre());                // → PLUS DE "Non spécifié"
+                    map.put("active", artiste.isActive());
+                    map.put("dateInscription", artiste.getDateInscription());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(artists);
+    }
+    @GetMapping("/artists/{id}/albums")
+    public ResponseEntity<List<Map<String, Object>>> getArtistAlbums(@PathVariable Long id) {
+        Artiste artiste = (Artiste) userRepository.findById(id).orElse(null);
+        if (artiste == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        List<Map<String, Object>> albums = artiste.getAlbums().stream().map(album -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", album.getId());
+            map.put("titre", album.getTitre());
+            map.put("dateSortie", album.getDateSortie()); // LocalDate → Spring le convertit bien en "2025-04-05"
+            return map;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(albums);
+    }
+    @GetMapping("/artists/{id}/chansons")
+    public ResponseEntity<List<ChansonResponse>> getArtistSongs(@PathVariable Long id) {
+        Artiste artiste = (Artiste) userRepository.findById(id).orElse(null);
+        if (artiste == null) return ResponseEntity.notFound().build();
+
+        List<ChansonResponse> chansons = artiste.getAlbums().stream()
+                .flatMap(album -> album.getChansons().stream())
+                .map(chanson -> new ChansonResponse(
+                        chanson.getId(),
+                        chanson.getTitre(),
+                        chanson.getUrl(),
+                        chanson.getMusicGenre(),
+                        chanson.getAlbum() != null ? chanson.getAlbum().getId() : null,
+                        chanson.getAlbum() != null ? chanson.getAlbum().getTitre() : null
+                ))
+                .toList();
+
+        return ResponseEntity.ok(chansons);
     }
 }
