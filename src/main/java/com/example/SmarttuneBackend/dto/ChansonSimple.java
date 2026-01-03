@@ -6,5 +6,6 @@ public record ChansonSimple(
         Long id,
         String titre,
         String url,
+        String duree,
         MusicGenre musicGenre
 ) {}

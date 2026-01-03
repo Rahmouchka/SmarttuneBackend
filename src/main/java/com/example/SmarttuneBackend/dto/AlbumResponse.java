@@ -6,6 +6,7 @@ public record AlbumResponse(
         Long id,
         String titre,
         LocalDate dateSortie,
+        String couvertureUrl,           // nouveau champ
         Long artisteId,
         String nomArtiste,
         List<ChansonSimple> chansons

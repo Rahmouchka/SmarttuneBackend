@@ -1,27 +1,21 @@
 package com.example.SmarttuneBackend.dao;
 
 import com.example.SmarttuneBackend.entities.Album;
-import com.example.SmarttuneBackend.entities.Artiste;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AlbumRepository extends JpaRepository<Album, Long> {
 
-    // Tous les albums d'un artiste
-    List<Album> findByArtiste(Artiste artiste);
-
-    // Tous les albums d'un artiste par ID
     List<Album> findByArtisteId(Long artisteId);
 
-    // Recherche par titre (insensible à la casse)
-    List<Album> findByTitreContainingIgnoreCase(String titre);
+    @Query("SELECT a FROM Album a WHERE a.id = :albumId AND a.artiste.id = :artisteId")
+    Optional<Album> findByIdAndArtisteId(@Param("albumId") Long albumId, @Param("artisteId") Long artisteId);
 
-    // Albums sortis après une certaine date
-    List<Album> findByDateSortieAfter(java.time.LocalDate date);
-
-    // Combiner artiste + ordre chronologique
     List<Album> findByArtisteIdOrderByDateSortieDesc(Long artisteId);
 }
