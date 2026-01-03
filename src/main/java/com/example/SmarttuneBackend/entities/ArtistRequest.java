@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -27,13 +28,12 @@ public class ArtistRequest {
     private String email;
     @Column
     private String passwordHash;
-    @Column
-    private Integer age;
 
     @Enumerated(EnumType.STRING)
     @Column
     private Genre genre;
-
+    @Column
+    private LocalDate dateNaissance;
     @Column
     private String numTel;
     @Column
@@ -72,10 +72,13 @@ public class ArtistRequest {
         return passwordHash;
     }
 
-    public Integer getAge() {
-        return age;
+    public LocalDate getDateNaissance() {
+        return dateNaissance;
     }
 
+    public void setDateNaissance(LocalDate dateNaissance) {
+        this.dateNaissance = dateNaissance;
+    }
     public Genre getGenre() {
         return genre;
     }
@@ -124,9 +127,7 @@ public class ArtistRequest {
         this.passwordHash = passwordHash;
     }
 
-    public void setAge(Integer age) {
-        this.age = age;
-    }
+
 
     public void setGenre(Genre genre) {
         this.genre = genre;

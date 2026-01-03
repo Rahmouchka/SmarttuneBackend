@@ -35,9 +35,8 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column
     private Genre genre;
-
     @Column
-    private Integer age;
+    private LocalDate dateNaissance;
 
     @Column(nullable = false)
     private String password;
@@ -85,9 +84,7 @@ public class User {
         return genre;
     }
 
-    public Integer getAge() {
-        return age;
-    }
+
 
     public String getPassword() {
         return password;
@@ -137,9 +134,6 @@ public class User {
         this.genre = genre;
     }
 
-    public void setAge(Integer age) {
-        this.age = age;
-    }
 
     public void setPassword(String password) {
         this.password = password;
@@ -163,5 +157,13 @@ public class User {
 
     public void setActive(boolean active) {
         isActive = active;
+    }
+
+    public LocalDate getDateNaissance() {
+        return dateNaissance;
+    }
+
+    public void setDateNaissance(LocalDate dateNaissance) {
+        this.dateNaissance = dateNaissance;
     }
 }

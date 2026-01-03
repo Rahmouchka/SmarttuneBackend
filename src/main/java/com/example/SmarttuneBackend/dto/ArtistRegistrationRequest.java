@@ -4,106 +4,50 @@ import com.example.SmarttuneBackend.entities.Genre;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 public class ArtistRegistrationRequest {
 
-    @NotBlank @Size(min = 3, max = 30)
-    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "Nom d'artiste invalide")
-    private String username; // nom de scène
+    @NotBlank(message = "Le nom d'artiste (username) est obligatoire")
+    @Size(min = 3, max = 30, message = "Le nom d'artiste doit contenir entre 3 et 30 caractères")
+    @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "Nom d'artiste invalide : seuls lettres, chiffres, _ et - autorisés")
+    private String username; // nom de scène / nom d'artiste
 
-    @NotBlank @Size(min = 2, max = 50)
+    @NotBlank(message = "Le nom est obligatoire")
+    @Size(min = 2, max = 50, message = "Le nom doit contenir entre 2 et 50 caractères")
     private String nom;
 
-    @NotBlank @Size(min = 2, max = 50)
+    @NotBlank(message = "Le prénom est obligatoire")
+    @Size(min = 2, max = 50, message = "Le prénom doit contenir entre 2 et 50 caractères")
     private String prenom;
 
-    @Email @NotBlank
+    @NotBlank(message = "L'email est obligatoire")
+    @Email(message = "Format d'email invalide")
     private String email;
 
-    @Pattern(regexp = "^(\\+216|00216)?[0-9]{8}$")
+    @Pattern(regexp = "^(\\+216|00216)?[0-9]{8}$", message = "Numéro de téléphone tunisien invalide")
     private String numTel;
 
-    @Min(13) @Max(100)
-    private Integer age;
+    @NotNull(message = "La date de naissance est obligatoire")
+    @Past(message = "La date de naissance doit être dans le passé")
+    private LocalDate dateNaissance;
 
+    @NotNull(message = "Le genre est obligatoire")
     private Genre genre;
 
-    @NotBlank @Size(min = 8)
+    @NotBlank(message = "Le mot de passe est obligatoire")
+    @Size(min = 8, message = "Le mot de passe doit contenir au moins 8 caractères")
+    @Pattern.List({
+            @Pattern(regexp = ".*[A-Z].*", message = "Au moins une majuscule requise"),
+            @Pattern(regexp = ".*[a-z].*", message = "Au moins une minuscule requise"),
+            @Pattern(regexp = ".*[0-9].*", message = "Au moins un chiffre requis"),
+            @Pattern(regexp = ".*[^A-Za-z0-9].*", message = "Au moins un caractère spécial requis")
+    })
     private String password;
 
-    @NotBlank
-    @Size(min = 50, max = 1000, message = "Bio : 50 à 1000 caractères")
+    @NotBlank(message = "La bio est obligatoire")
+    @Size(min = 50, max = 1000, message = "La bio doit contenir entre 50 et 1000 caractères")
     private String bio;
 
-    public String getUsername() {
-        return username;
-    }
-
-    public String getNom() {
-        return nom;
-    }
-
-    public String getPrenom() {
-        return prenom;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getNumTel() {
-        return numTel;
-    }
-
-    public Integer getAge() {
-        return age;
-    }
-
-    public Genre getGenre() {
-        return genre;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getBio() {
-        return bio;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public void setNom(String nom) {
-        this.nom = nom;
-    }
-
-    public void setPrenom(String prenom) {
-        this.prenom = prenom;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public void setNumTel(String numTel) {
-        this.numTel = numTel;
-    }
-
-    public void setAge(Integer age) {
-        this.age = age;
-    }
-
-    public void setGenre(Genre genre) {
-        this.genre = genre;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setBio(String bio) {
-        this.bio = bio;
-    }
 }

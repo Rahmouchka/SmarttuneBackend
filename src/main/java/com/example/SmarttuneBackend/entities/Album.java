@@ -19,6 +19,8 @@ public class Album {
     private String titre;
 
     private LocalDate dateSortie = LocalDate.now();
+    @Column
+    private String couvertureUrl;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "artiste_id", nullable = false)
