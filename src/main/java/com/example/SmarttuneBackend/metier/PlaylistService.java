@@ -116,6 +116,7 @@ public class PlaylistService {
                         c.getId(),
                         c.getTitre(),
                         c.getUrl(),
+                        c.getDuree(),
                         c.getMusicGenre()
                 ))
                 .collect(Collectors.toList());

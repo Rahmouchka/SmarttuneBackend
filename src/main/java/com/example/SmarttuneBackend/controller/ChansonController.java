@@ -27,6 +27,7 @@ public class ChansonController {
                 chanson.getId(),
                 chanson.getTitre(),
                 chanson.getUrl(),
+                chanson.getDuree(),
                 chanson.getMusicGenre(),
                 chanson.getAlbum() != null ? chanson.getAlbum().getId() : null,
                 chanson.getAlbum() != null ? chanson.getAlbum().getTitre() : null
