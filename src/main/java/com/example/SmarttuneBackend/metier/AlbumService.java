@@ -1,66 +1,126 @@
 package com.example.SmarttuneBackend.metier;
 
+import com.example.SmarttuneBackend.dao.AlbumRepository;
+import com.example.SmarttuneBackend.dao.ArtisteRepository;
 import com.example.SmarttuneBackend.dao.ChansonRepository;
 import com.example.SmarttuneBackend.dto.AlbumResponse;
 import com.example.SmarttuneBackend.dto.ChansonSimple;
 import com.example.SmarttuneBackend.entities.Album;
 import com.example.SmarttuneBackend.entities.Artiste;
-import com.example.SmarttuneBackend.dao.AlbumRepository;
 import com.example.SmarttuneBackend.entities.Chanson;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AlbumService {
 
+    private static final String UPLOAD_DIR = "uploads/albums/couvertures/";
+
     private final AlbumRepository albumRepository;
     private final ChansonRepository chansonRepository;
+    private final ArtisteRepository artisteRepository;  // Ajouté : nécessaire !
 
-    public Album createAlbum(Artiste artiste, String titre) {
+    private Path uploadDirectory;
+
+    @PostConstruct
+    public void init() {
+        uploadDirectory = Paths.get(System.getProperty("user.dir"), UPLOAD_DIR);
+        try {
+            Files.createDirectories(uploadDirectory);
+        } catch (IOException e) {
+            throw new RuntimeException("Impossible de créer le dossier des couvertures d'albums", e);
+        }
+    }
+
+    // ========================
+    // CRÉER UN ALBUM
+    // ========================
+    public Album createAlbum(Long artisteId, String titre, MultipartFile couverture) {
+        Artiste artiste = artisteRepository.findById(artisteId)
+                .orElseThrow(() -> new RuntimeException("Artiste non trouvé"));
+
         Album album = Album.builder()
                 .titre(titre)
                 .artiste(artiste)
+                .dateSortie(LocalDate.now())
                 .build();
 
-        return albumRepository.save(album);
-    }
-    @Transactional
-    public Album addChansonsToAlbum(Artiste artiste, Long albumId, List<Long> chansonIds) {
-        Album album = albumRepository.findById(albumId)
-                .orElseThrow(() -> new RuntimeException("Album non trouvé"));
+        album = albumRepository.save(album);
 
-        // Sécurité : l'album doit appartenir à l'artiste
-        if (!album.getArtiste().getId().equals(artiste.getId())) {
-            throw new RuntimeException("Cet album ne t'appartient pas");
+        if (couverture != null && !couverture.isEmpty()) {
+            String couvertureUrl = saveCouvertureImage(couverture, album.getId());
+            album.setCouvertureUrl(couvertureUrl);
+            albumRepository.save(album);
         }
+
+        return album;
+    }
+
+    // ========================
+    // AJOUTER DES CHANSONS À L'ALBUM
+    // ========================
+    public void addChansonsToAlbum(Long artisteId, Long albumId, List<Long> chansonIds) {
+        Album album = albumRepository.findByIdAndArtisteId(albumId, artisteId)
+                .orElseThrow(() -> new RuntimeException("Album non trouvé ou ne vous appartient pas"));
 
         for (Long chansonId : chansonIds) {
             Chanson chanson = chansonRepository.findById(chansonId)
                     .orElseThrow(() -> new RuntimeException("Chanson non trouvée : " + chansonId));
 
-            // Sécurité : la chanson doit aussi appartenir à l'artiste
-            if (!chanson.getArtiste().getId().equals(artiste.getId())) {
-                throw new RuntimeException("Tu n'es pas propriétaire de la chanson ID: " + chansonId);
+            if (!chanson.getArtiste().getId().equals(artisteId)) {
+                throw new RuntimeException("Cette chanson ne vous appartient pas");
             }
 
-            // Empêche d'ajouter une chanson déjà dans un autre album
             if (chanson.getAlbum() != null && !chanson.getAlbum().getId().equals(albumId)) {
                 throw new RuntimeException("La chanson '" + chanson.getTitre() + "' est déjà dans un autre album");
             }
 
             chanson.setAlbum(album);
-            // Pas besoin de save() ici si cascade est bien configuré, mais c'est plus sûr
             chansonRepository.save(chanson);
         }
 
-        // Retourne l'album mis à jour (avec les chansons ajoutées)
-        return albumRepository.findById(albumId).get();
     }
+
+    // ========================
+    // RETIRER UNE CHANSON DE L'ALBUM
+    // ========================
+    public Album removeChansonFromAlbum(Long artisteId, Long albumId, Long chansonId) {
+        Album album = albumRepository.findByIdAndArtisteId(albumId, artisteId)
+                .orElseThrow(() -> new RuntimeException("Album non trouvé ou ne vous appartient pas"));
+
+        Chanson chanson = chansonRepository.findById(chansonId)
+                .orElseThrow(() -> new RuntimeException("Chanson non trouvée"));
+
+        if (!chanson.getArtiste().getId().equals(artisteId)) {
+            throw new RuntimeException("Cette chanson ne vous appartient pas");
+        }
+
+        if (chanson.getAlbum() == null || !chanson.getAlbum().getId().equals(albumId)) {
+            throw new RuntimeException("Cette chanson n'est pas dans cet album");
+        }
+
+        chanson.setAlbum(null);
+        chansonRepository.save(chanson);
+
+        return album;
+    }
+
+    // ========================
+    // LISTE DES ALBUMS
+    // ========================
     public List<AlbumResponse> getAlbumsByArtiste(Long artisteId) {
         List<Album> albums = albumRepository.findByArtisteIdOrderByDateSortieDesc(artisteId);
 
@@ -69,6 +129,7 @@ public class AlbumService {
                         album.getId(),
                         album.getTitre(),
                         album.getDateSortie(),
+                        album.getCouvertureUrl(),
                         album.getArtiste().getId(),
                         album.getArtiste().getNomArtiste(),
                         album.getChansons().stream()
@@ -76,6 +137,7 @@ public class AlbumService {
                                         c.getId(),
                                         c.getTitre(),
                                         c.getUrl(),
+                                        c.getDuree(),
                                         c.getMusicGenre()
                                 ))
                                 .toList()
@@ -83,19 +145,41 @@ public class AlbumService {
                 .toList();
     }
 
-    public Album getAlbumWithChansons(Long id) {
-        return albumRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Album non trouvé"));
-    }
+    // ========================
+    // SUPPRIMER UN ALBUM
+    // ========================
+    public void deleteAlbum(Long artisteId, Long albumId) {
+        Album album = albumRepository.findByIdAndArtisteId(albumId, artisteId)
+                .orElseThrow(() -> new RuntimeException("Album non trouvé ou ne vous appartient pas"));
 
-    public void deleteAlbum(Artiste artiste, Long albumId) {
-        Album album = albumRepository.findById(albumId)
-                .orElseThrow(() -> new RuntimeException("Album non trouvé"));
-
-        if (!album.getArtiste().getId().equals(artiste.getId())) {
-            throw new RuntimeException("Accès refusé");
+        if (album.getCouvertureUrl() != null) {
+            try {
+                Files.deleteIfExists(Paths.get(album.getCouvertureUrl()));
+            } catch (IOException e) {
+                System.err.println("Erreur suppression couverture : " + e.getMessage());
+            }
         }
 
         albumRepository.delete(album);
+    }
+
+    // ========================
+    // SAUVEGARDE IMAGE COUVERTURE
+    // ========================
+    private String saveCouvertureImage(MultipartFile file, Long albumId) {
+        try {
+            String originalName = file.getOriginalFilename();
+            String extension = (originalName != null && originalName.contains("."))
+                    ? originalName.substring(originalName.lastIndexOf("."))
+                    : ".jpg";
+
+            String fileName = albumId + "_" + UUID.randomUUID() + extension;
+            Path filePath = uploadDirectory.resolve(fileName);
+            Files.write(filePath, file.getBytes());
+
+            return filePath.toAbsolutePath().toString();
+        } catch (IOException e) {
+            throw new RuntimeException("Erreur upload couverture", e);
+        }
     }
 }

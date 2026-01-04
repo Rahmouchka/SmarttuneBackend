@@ -24,6 +24,12 @@ public class Chanson {
     @Column(nullable = false)
     private String url;
 
+    @Column
+    private String humeur;
+
+    @Column(nullable = false)
+    private Integer signalements = 0;
+
     private String duree;
     private LocalDate dateSortie = LocalDate.now();
 

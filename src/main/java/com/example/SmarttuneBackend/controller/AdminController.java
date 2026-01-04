@@ -46,7 +46,7 @@ public class AdminController {
             map.put("prenom", req.getPrenom());
             map.put("email", req.getEmail());
             map.put("numTel", req.getNumTel());
-            map.put("age", req.getAge());
+            map.put("dateNaissance", req.getDateNaissance());
             map.put("genre", req.getGenre());
             map.put("bio", req.getBio());
             map.put("submittedAt", req.getSubmittedAt());
@@ -76,7 +76,7 @@ public class AdminController {
         map.put("prenom", req.getPrenom());
         map.put("email", req.getEmail());
         map.put("numTel", req.getNumTel());
-        map.put("age", req.getAge());
+        map.put("dateNaissance", req.getDateNaissance());
         map.put("genre", req.getGenre());
         map.put("bio", req.getBio());
         map.put("submittedAt", req.getSubmittedAt());
@@ -245,6 +245,7 @@ public class AdminController {
                         chanson.getId(),
                         chanson.getTitre(),
                         chanson.getUrl(),
+                        chanson.getDuree(),
                         chanson.getMusicGenre(),
                         chanson.getAlbum() != null ? chanson.getAlbum().getId() : null,
                         chanson.getAlbum() != null ? chanson.getAlbum().getTitre() : null

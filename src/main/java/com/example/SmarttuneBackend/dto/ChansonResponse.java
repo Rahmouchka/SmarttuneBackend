@@ -6,7 +6,8 @@ public record ChansonResponse(
         Long id,
         String titre,
         String url,
+        String duree,
         MusicGenre musicGenre,
-        Long albumId,           // null si pas dans un album
-        String albumTitre       // null si pas dans un album
+        Long albumId,                   // peut être null
+        String albumTitre      // null si pas dans un album
 ) {}
