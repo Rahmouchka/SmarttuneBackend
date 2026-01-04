@@ -177,7 +177,8 @@ public class AlbumService {
             Path filePath = uploadDirectory.resolve(fileName);
             Files.write(filePath, file.getBytes());
 
-            return filePath.toAbsolutePath().toString();
+            // ← CHANGEMENT CRUCIAL : renvoie un chemin relatif commençant par /uploads/...
+            return "/uploads/albums/couvertures/" + fileName;
         } catch (IOException e) {
             throw new RuntimeException("Erreur upload couverture", e);
         }
