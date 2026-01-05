@@ -9,6 +9,8 @@ import com.example.SmarttuneBackend.entities.Album;
 import com.example.SmarttuneBackend.entities.Artiste;
 import com.example.SmarttuneBackend.entities.Chanson;
 import jakarta.annotation.PostConstruct;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,17 +23,20 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AlbumService {
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private static final String UPLOAD_DIR = "uploads/albums/couvertures/";
 
     private final AlbumRepository albumRepository;
     private final ChansonRepository chansonRepository;
-    private final ArtisteRepository artisteRepository;  // Ajouté : nécessaire !
+    private final ArtisteRepository artisteRepository;
 
     private Path uploadDirectory;
 
@@ -91,7 +96,6 @@ public class AlbumService {
             chanson.setAlbum(album);
             chansonRepository.save(chanson);
         }
-
     }
 
     // ========================
@@ -119,30 +123,34 @@ public class AlbumService {
     }
 
     // ========================
-    // LISTE DES ALBUMS
+    // LISTE DES ALBUMS - CORRIGÉE
     // ========================
     public List<AlbumResponse> getAlbumsByArtiste(Long artisteId) {
         List<Album> albums = albumRepository.findByArtisteIdOrderByDateSortieDesc(artisteId);
 
         return albums.stream()
-                .map(album -> new AlbumResponse(
-                        album.getId(),
-                        album.getTitre(),
-                        album.getDateSortie(),
-                        album.getCouvertureUrl(),
-                        album.getArtiste().getId(),
-                        album.getArtiste().getNomArtiste(),
-                        album.getChansons().stream()
-                                .map(c -> new ChansonSimple(
-                                        c.getId(),
-                                        c.getTitre(),
-                                        c.getUrl(),
-                                        c.getDuree(),
-                                        c.getMusicGenre()
-                                ))
-                                .toList()
-                ))
-                .toList();
+                .map(album -> {
+                    // Convertir les chansons en ChansonSimple
+                    List<ChansonSimple> chansonsDto = album.getChansons().stream()
+                            .map(c -> new ChansonSimple(
+                                    c.getId(),
+                                    c.getTitre(),
+                                    c.getUrl(),
+                                    c.getDuree(),
+                                    c.getMusicGenre()
+                            ))
+                            .collect(Collectors.toList());
+
+                    // AlbumResponse avec SEULEMENT 5 paramètres
+                    return new AlbumResponse(
+                            album.getId(),              // 1
+                            album.getTitre(),           // 2
+                            album.getDateSortie(),      // 3
+                            album.getCouvertureUrl(),   // 4
+                            chansonsDto                 // 5
+                    );
+                })
+                .collect(Collectors.toList());
     }
 
     // ========================
@@ -177,7 +185,6 @@ public class AlbumService {
             Path filePath = uploadDirectory.resolve(fileName);
             Files.write(filePath, file.getBytes());
 
-            // ← CHANGEMENT CRUCIAL : renvoie un chemin relatif commençant par /uploads/...
             return "/uploads/albums/couvertures/" + fileName;
         } catch (IOException e) {
             throw new RuntimeException("Erreur upload couverture", e);
