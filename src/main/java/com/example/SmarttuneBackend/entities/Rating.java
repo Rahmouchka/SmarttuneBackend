@@ -2,6 +2,10 @@ package com.example.SmarttuneBackend.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -22,7 +26,15 @@ public class Rating {
     private Chanson chanson;
 
     @Column(nullable = false)
-    private Integer note;
+    private Integer note; // 1 à 5
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime dateCreation = LocalDateTime.now();
+
+    @UpdateTimestamp
+    @Column
+    private LocalDateTime dateModification = LocalDateTime.now();
 
 
 }
