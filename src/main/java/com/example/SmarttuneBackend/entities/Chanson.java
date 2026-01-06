@@ -47,4 +47,24 @@ public class Chanson {
     @JoinColumn(name = "artiste_id", nullable = false)
     @JsonIgnore
     private Artiste artiste;
+
+    @OneToMany(mappedBy = "chanson", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore // Pour éviter les boucles infinies lors de la sérialisation
+    private List<Rating> ratings = new ArrayList<>();
+
+    // Méthode utilitaire pour calculer la moyenne des ratings
+    @Transient
+    public Double getMoyenneNote() {
+        if (ratings == null || ratings.isEmpty()) {
+            return 0.0;
+        }
+        double sum = ratings.stream().mapToInt(Rating::getNote).sum();
+        double average = sum / ratings.size();
+        return Math.round(average * 10.0) / 10.0;
+    }
+
+    @Transient
+    public Long getNombreRatings() {
+        return ratings == null ? 0L : (long) ratings.size();
+    }
 }

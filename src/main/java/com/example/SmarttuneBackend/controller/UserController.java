@@ -3,6 +3,7 @@ package com.example.SmarttuneBackend.controller;
 import com.example.SmarttuneBackend.dao.UserRepository;
 import com.example.SmarttuneBackend.dto.PlaylistResponse;
 import com.example.SmarttuneBackend.entities.User;
+import com.example.SmarttuneBackend.metier.ChansonService;
 import com.example.SmarttuneBackend.metier.FavorisService;
 import com.example.SmarttuneBackend.metier.PlaylistService;
 import com.example.SmarttuneBackend.dto.ChansonSimple;
@@ -20,6 +21,7 @@ public class UserController {
     private final PlaylistService playlistService;
     private final FavorisService favorisService;
     private final UserRepository userRepository;
+    private final ChansonService chansonService;
 
     // GESTION PLAYLISTS
 
@@ -124,5 +126,18 @@ public class UserController {
 
         favorisService.removeChansonFromFavoris(user, chansonId);
         return ResponseEntity.ok("Chanson supprimée des favoris");
+    }
+    @PostMapping("/{userId}/chansons/{chansonId}/signaler")
+    public ResponseEntity<String> signalerChanson(
+            @PathVariable Long userId,
+            @PathVariable Long chansonId) {
+
+        // Vérifier que l'utilisateur existe
+        userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé ID: " + userId));
+
+        chansonService.signalerChanson(chansonId);
+
+        return ResponseEntity.ok("Chanson signalée avec succès");
     }
 }

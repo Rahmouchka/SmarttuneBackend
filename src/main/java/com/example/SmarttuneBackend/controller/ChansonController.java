@@ -3,12 +3,12 @@ package com.example.SmarttuneBackend.controller;
 import com.example.SmarttuneBackend.dao.ChansonRepository;
 import com.example.SmarttuneBackend.dto.ChansonResponse;
 import com.example.SmarttuneBackend.entities.Chanson;
+import com.example.SmarttuneBackend.metier.ChansonService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/chansons")
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChansonController {
 
     private final ChansonRepository chansonRepository;
-
+    private final ChansonService chansonService;
     // ÉCOUTER UNE CHANSON (retourne détails avec URL pour streaming)
     @GetMapping("/{id}")
     public ResponseEntity<ChansonResponse> getChansonForListen(@PathVariable Long id) {
@@ -34,5 +34,13 @@ public class ChansonController {
         );
 
         return ResponseEntity.ok(response);
+    }
+    @GetMapping("/random")
+    public ResponseEntity<List<ChansonResponse>> getRandomChansonsByHumeur(
+            @RequestParam String humeur) {
+
+        List<ChansonResponse> chansons = chansonService.getRandomChansonsByHumeur(humeur);
+
+        return ResponseEntity.ok(chansons);
     }
 }
