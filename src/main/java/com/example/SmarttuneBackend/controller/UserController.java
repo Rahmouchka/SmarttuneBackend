@@ -2,11 +2,15 @@ package com.example.SmarttuneBackend.controller;
 
 import com.example.SmarttuneBackend.dao.UserRepository;
 import com.example.SmarttuneBackend.dto.PlaylistResponse;
+import com.example.SmarttuneBackend.dto.ProfileUpdateRequest;
+import com.example.SmarttuneBackend.dto.UserProfileResponse;
 import com.example.SmarttuneBackend.entities.User;
 import com.example.SmarttuneBackend.metier.ChansonService;
 import com.example.SmarttuneBackend.metier.FavorisService;
 import com.example.SmarttuneBackend.metier.PlaylistService;
 import com.example.SmarttuneBackend.dto.ChansonSimple;
+import com.example.SmarttuneBackend.metier.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +26,7 @@ public class UserController {
     private final FavorisService favorisService;
     private final UserRepository userRepository;
     private final ChansonService chansonService;
-
+    private final UserService userService;
     // GESTION PLAYLISTS
 
     @PostMapping("/{userId}/playlists")
@@ -139,5 +143,21 @@ public class UserController {
         chansonService.signalerChanson(chansonId);
 
         return ResponseEntity.ok("Chanson signalée avec succès");
+    }
+      // Ajoute cette ligne avec les autres injections
+
+    // === PROFIL UTILISATEUR CONNECTÉ ===
+
+    @GetMapping("/{userId}/me")
+    public ResponseEntity<UserProfileResponse> getMyProfile(@PathVariable Long userId) {
+        return ResponseEntity.ok(userService.getMyProfile(userId));
+    }
+
+    @PatchMapping("/{userId}/me/profile")
+    public ResponseEntity<UserProfileResponse> updateMyProfile(
+            @PathVariable Long userId,
+            @Valid @RequestBody ProfileUpdateRequest request) {
+
+        return ResponseEntity.ok(userService.updateMyProfile(userId, request));
     }
 }

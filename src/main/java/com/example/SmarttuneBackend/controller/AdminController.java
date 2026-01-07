@@ -4,8 +4,10 @@ import com.example.SmarttuneBackend.dao.ArtistRequestRepository;
 import com.example.SmarttuneBackend.dao.ChansonRepository;
 import com.example.SmarttuneBackend.dao.UserRepository;
 import com.example.SmarttuneBackend.dto.ChansonResponse;
+import com.example.SmarttuneBackend.dto.ChansonSignaleeDTO;
 import com.example.SmarttuneBackend.entities.*;
 import com.example.SmarttuneBackend.metier.AuthService;
+import com.example.SmarttuneBackend.metier.ChansonService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -32,6 +34,7 @@ public class AdminController {
 
     @Autowired private ArtistRequestRepository artistRequestRepository;
     @Autowired private AuthService authService;
+    @Autowired private ChansonService chansonService;
 
     // LISTE DES DEMANDES PENDING
     @GetMapping("/artist-requests")
@@ -253,5 +256,9 @@ public class AdminController {
                 .toList();
 
         return ResponseEntity.ok(chansons);
+    }
+    @GetMapping("/chansons/signalees")
+    public ResponseEntity<List<ChansonSignaleeDTO>> getChansonsSignalees() {
+        return ResponseEntity.ok(chansonService.getChansonsSignalees());
     }
 }

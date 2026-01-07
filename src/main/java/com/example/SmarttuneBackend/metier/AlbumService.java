@@ -154,17 +154,20 @@ public class AlbumService {
     }
 
     // ========================
-    // SUPPRIMER UN ALBUM
-    // ========================
+// SUPPRIMER UN ALBUM
+// ========================
     public void deleteAlbum(Long artisteId, Long albumId) {
         Album album = albumRepository.findByIdAndArtisteId(albumId, artisteId)
                 .orElseThrow(() -> new RuntimeException("Album non trouvé ou ne vous appartient pas"));
 
+        chansonRepository.detachAllChansonsFromAlbum(albumId);
+
         if (album.getCouvertureUrl() != null) {
             try {
-                Files.deleteIfExists(Paths.get(album.getCouvertureUrl()));
+                Path couverturePath = Paths.get(System.getProperty("user.dir"), album.getCouvertureUrl().substring(1)); // enlève le / initial
+                Files.deleteIfExists(couverturePath);
             } catch (IOException e) {
-                System.err.println("Erreur suppression couverture : " + e.getMessage());
+                System.err.println("Erreur lors de la suppression de la couverture : " + e.getMessage());
             }
         }
 

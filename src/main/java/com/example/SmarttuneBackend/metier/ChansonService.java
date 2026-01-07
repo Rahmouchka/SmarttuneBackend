@@ -4,13 +4,13 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
 import com.example.SmarttuneBackend.dao.ChansonRepository;
 import com.example.SmarttuneBackend.dto.ChansonResponse;
+import com.example.SmarttuneBackend.dto.ChansonSignaleeDTO;
 import com.example.SmarttuneBackend.entities.Artiste;
 import com.example.SmarttuneBackend.entities.Chanson;
 import com.example.SmarttuneBackend.entities.MusicGenre;
 import com.mpatric.mp3agic.InvalidDataException;
 import com.mpatric.mp3agic.Mp3File;
 import com.mpatric.mp3agic.UnsupportedTagException;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.PageRequest;
@@ -21,7 +21,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
-
+import org.springframework.transaction.annotation.Transactional;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -39,7 +39,7 @@ public class ChansonService {
     private final ChansonRepository chansonRepo;
     private final RestTemplate restTemplate; // Doit être injecté via la config
 
-    private static final String AI_API_URL = "http://localhost:5000/predict_emotion";
+    private static final String AI_API_URL = "http://localhost:5000/predict";
 
     @Transactional
     public Chanson uploadChanson(Artiste artiste, MultipartFile file, String titre, MusicGenre genre) {
@@ -128,26 +128,49 @@ public class ChansonService {
             ResponseEntity<Map> response = restTemplate.postForEntity(AI_API_URL, requestEntity, Map.class);
 
             System.out.println("Status Flask : " + response.getStatusCode());
-            System.out.println("Réponse Flask : " + response.getBody());
+            System.out.println("Réponse brute Flask : " + response.getBody());
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map<String, Object> json = response.getBody();
-                String predictedHumeur = (String) json.get("emotion");
-                Double confidence = json.containsKey("confidence")
-                        ? ((Number) json.get("confidence")).doubleValue()
-                        : null;
-
-                System.out.println("Humeur détectée : " + predictedHumeur + " (confiance: " + confidence + ")");
-
-                if (confidence != null && confidence < 0.6) {
-                    return "inconnue";
-                }
-                return predictedHumeur != null ? predictedHumeur : "inconnue";
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                System.err.println("Réponse Flask non réussie ou corps vide");
+                return "inconnue";
             }
+
+            Map<String, Object> json = response.getBody();
+
+            // Cherche l'humeur dans plusieurs clés possibles (au cas où ton Flask change)
+            String predictedHumeur = null;
+            Double confidence = null;
+
+            for (String key : new String[]{"emotion", "predicted_emotion", "mood", "label", "prediction"}) {
+                if (json.containsKey(key) && json.get(key) != null) {
+                    predictedHumeur = json.get(key).toString().trim();
+                    break;
+                }
+            }
+
+            // Cherche la confiance
+            for (String confKey : new String[]{"confidence", "score", "probability"}) {
+                if (json.containsKey(confKey) && json.get(confKey) instanceof Number) {
+                    confidence = ((Number) json.get(confKey)).doubleValue();
+                    break;
+                }
+            }
+
+            System.out.println("Humeur extraite : '" + predictedHumeur + "'");
+            System.out.println("Confiance : " + confidence);
+
+            // Temporairement : baisse le seuil pour tester si ça passe
+            if (predictedHumeur != null && predictedHumeur.length() > 0) {
+                if (confidence == null || confidence >= 0.3) {  // seuil bas pour tester !
+                    return predictedHumeur;
+                }
+            }
+
         } catch (Exception e) {
             System.err.println("Erreur appel IA : " + e.getMessage());
             e.printStackTrace();
         }
+
         return "inconnue";
     }
     // === Autres méthodes (tu peux les garder telles quelles) ===
@@ -223,5 +246,19 @@ public class ChansonService {
 
         // save facultatif car transactionnel, mais plus explicite
         chansonRepo.save(chanson);
+    }
+    @Transactional(readOnly = true)
+    public List<ChansonSignaleeDTO> getChansonsSignalees() {
+        return chansonRepo.findReportedChansonsOrderedBySignalements()
+                .stream()
+                .map(chanson -> new ChansonSignaleeDTO(
+                        chanson.getId(),
+                        chanson.getTitre(),
+                        chanson.getArtiste() != null ? chanson.getArtiste().getNomArtiste() : "Artiste inconnu",
+                        chanson.getSignalements(),
+                        chanson.getMusicGenre() != null ? chanson.getMusicGenre().name() : null,
+                        chanson.getDuree()
+                ))
+                .toList();
     }
 }

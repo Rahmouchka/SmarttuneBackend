@@ -19,10 +19,8 @@ import java.util.List;
 public class Artiste extends User {
 
     private String nomArtiste;
-    private String bio;
     private Integer nbrAbonnees = 0;
 
-    @OneToMany(mappedBy = "artiste", cascade = CascadeType.ALL)
-    private List<Album> albums = new ArrayList<>();
+    @OneToMany(mappedBy = "artiste", cascade = CascadeType.ALL, orphanRemoval = true)    private List<Album> albums = new ArrayList<>();
 
 }

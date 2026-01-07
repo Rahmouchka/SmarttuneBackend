@@ -48,8 +48,7 @@ public class Chanson {
     @JsonIgnore
     private Artiste artiste;
 
-    @OneToMany(mappedBy = "chanson", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore // Pour éviter les boucles infinies lors de la sérialisation
+    @OneToMany(mappedBy = "chanson", cascade = CascadeType.ALL, orphanRemoval = true) // sur ratings    @JsonIgnore // Pour éviter les boucles infinies lors de la sérialisation
     private List<Rating> ratings = new ArrayList<>();
 
     // Méthode utilitaire pour calculer la moyenne des ratings
