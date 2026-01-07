@@ -12,6 +12,8 @@ import com.mpatric.mp3agic.InvalidDataException;
 import com.mpatric.mp3agic.Mp3File;
 import com.mpatric.mp3agic.UnsupportedTagException;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,9 +29,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -37,43 +37,69 @@ public class ChansonService {
 
     private final Cloudinary cloudinary;
     private final ChansonRepository chansonRepo;
-    private final RestTemplate restTemplate; // Doit être injecté via la config
+    private final RestTemplate restTemplate;
 
-    private static final String AI_API_URL = "http://localhost:5000/predict";
+    private static final String AI_API_URL = "http://127.0.0.1:8000/predict";
 
     @Transactional
     public Chanson uploadChanson(Artiste artiste, MultipartFile file, String titre, MusicGenre genre) {
-        // === LIRE LES BYTES UNE SEULE FOIS ===
+        // 1. Validations de base
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Fichier audio requis");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null) {
+            throw new IllegalArgumentException("Nom de fichier invalide");
+        }
+
+        // Validation extension (optionnel mais fortement recommandé)
+        String extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+        Set<String> allowed = Set.of("mp3", "wav", "m4a", "ogg", "flac");
+        if (!allowed.contains(extension)) {
+            throw new IllegalArgumentException("Format audio non supporté : " + extension);
+        }
+
+        // 2. Limite de taille (exemple : 50MB)
+        long maxSizeBytes = 50 * 1024 * 1024;
+        if (file.getSize() > maxSizeBytes) {
+            throw new IllegalArgumentException("Fichier trop volumineux (max 50MB)");
+        }
+
         byte[] audioBytes;
         try {
-            audioBytes = file.getBytes();  // Une seule lecture ici
+            audioBytes = file.getBytes();
         } catch (IOException e) {
             throw new RuntimeException("Impossible de lire le fichier audio", e);
         }
 
-        // 1. Upload sur Cloudinary avec les bytes
+        // 3. Upload Cloudinary
         String url;
         try {
             Map result = cloudinary.uploader().upload(audioBytes,
-                    ObjectUtils.asMap("resource_type", "auto"));
+                    ObjectUtils.asMap(
+                            "resource_type", "auto",
+                            "folder", "chansons",                // organisation
+                            "public_id", UUID.randomUUID().toString() // évite collisions
+                    ));
             url = (String) result.get("secure_url");
         } catch (Exception e) {
-            throw new RuntimeException("Échec de l'upload sur Cloudinary", e);
+            throw new RuntimeException("Échec upload Cloudinary", e);
         }
 
-        // 2. Extraction durée (on recrée un faux MultipartFile ou on utilise un temp file)
-        String duree = extractDuration(audioBytes, file.getOriginalFilename());
+        // 4. Extraction des métadonnées
+        String duree = extractDuration(audioBytes, originalFilename);
 
-        // 3. Détection humeur avec les mêmes bytes
-        String humeur = detectHumeur(audioBytes, file.getOriginalFilename());
+        // 5. Détection humeur (peut être lente → potentiellement async plus tard)
+        String humeur = detectHumeur(audioBytes, originalFilename);
 
-        // 4. Création chanson
+        // 6. Création entité
         Chanson chanson = Chanson.builder()
-                .titre(titre)
+                .titre(StringUtils.trimToNull(titre))  // nettoyage
                 .url(url)
                 .duree(duree)
                 .musicGenre(genre)
-                .humeur(humeur)
+                .humeur(humeur != null ? humeur.toLowerCase() : "inconnue")
                 .dateSortie(LocalDate.now())
                 .signalements(0)
                 .artiste(artiste)
@@ -125,53 +151,44 @@ public class ChansonService {
 
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
-            ResponseEntity<Map> response = restTemplate.postForEntity(AI_API_URL, requestEntity, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    AI_API_URL,
+                    HttpMethod.POST,
+                    requestEntity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
 
-            System.out.println("Status Flask : " + response.getStatusCode());
-            System.out.println("Réponse brute Flask : " + response.getBody());
+            System.out.println("Status : " + response.getStatusCode());
 
-            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                System.err.println("Réponse Flask non réussie ou corps vide");
+            Map<String, Object> json = response.getBody();
+            if (json == null) {
+                System.err.println("Réponse vide du Flask");
                 return "inconnue";
             }
 
-            Map<String, Object> json = response.getBody();
+            System.out.println("Réponse Flask complète : " + json);
 
-            // Cherche l'humeur dans plusieurs clés possibles (au cas où ton Flask change)
-            String predictedHumeur = null;
+            String predictedHumeur = (String) json.get("predicted_mood");
             Double confidence = null;
+            if (json.get("confidence") instanceof Number) {
+                confidence = ((Number) json.get("confidence")).doubleValue();
+            }
 
-            for (String key : new String[]{"emotion", "predicted_emotion", "mood", "label", "prediction"}) {
-                if (json.containsKey(key) && json.get(key) != null) {
-                    predictedHumeur = json.get(key).toString().trim();
-                    break;
+            System.out.println("Mood détecté : " + predictedHumeur + " (confiance: " + confidence + ")");
+
+            if (predictedHumeur != null && !predictedHumeur.isEmpty()) {
+                if (confidence == null || confidence >= 0.3) {
+                    return predictedHumeur.toLowerCase();
                 }
             }
 
-            // Cherche la confiance
-            for (String confKey : new String[]{"confidence", "score", "probability"}) {
-                if (json.containsKey(confKey) && json.get(confKey) instanceof Number) {
-                    confidence = ((Number) json.get(confKey)).doubleValue();
-                    break;
-                }
-            }
-
-            System.out.println("Humeur extraite : '" + predictedHumeur + "'");
-            System.out.println("Confiance : " + confidence);
-
-            // Temporairement : baisse le seuil pour tester si ça passe
-            if (predictedHumeur != null && predictedHumeur.length() > 0) {
-                if (confidence == null || confidence >= 0.3) {  // seuil bas pour tester !
-                    return predictedHumeur;
-                }
-            }
+            return "inconnue";
 
         } catch (Exception e) {
-            System.err.println("Erreur appel IA : " + e.getMessage());
+            System.err.println("Erreur appel Flask : " + e.getMessage());
             e.printStackTrace();
+            return "inconnue";
         }
-
-        return "inconnue";
     }
     // === Autres méthodes (tu peux les garder telles quelles) ===
     public List<ChansonResponse> getChansonsByArtiste(Long artisteId) {
